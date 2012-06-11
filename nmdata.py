@@ -91,7 +91,7 @@ class PredData:
             self.initWithRoute(allData, arg)
             return
             
-        self.parser = nm.StopDatabaseParser()
+        self.parser = nm.DatabaseParser()
         route = allData[self.parser.routeIndex()]
         stop = allData[self.parser.stopIndex()]
         vehicle = allData[self.parser.vehicleIndex()]
@@ -323,7 +323,7 @@ def loadData(fn='14',opt='recent'):
     fid = open(filename, 'r')
     
     # get data indices (in line)
-    parser = nm.StopDatabaseParser()
+    parser = nm.DatabaseParser()
     iroute = parser.routeIndex(); istop = parser.stopIndex(); ivehicle = parser.vehicleIndex()
     idirection = parser.directionIndex(); istarttime = parser.startTimeIndex(); iendtime = parser.endTimeIndex()
     icurrenttime = parser.currentTimeIndex(); ipred = parser.predIndex(); iwait = parser.waitIndex()
@@ -401,7 +401,7 @@ def getDelays(fileName,targetPredictionTimes=None,targetDirection='IB'):
     rte = nm.BusRoute(targetRoute)
     
     # separate the data columns
-    dbp = nm.StopDatabaseParser()
+    dbp = nm.DatabaseParser()
     stopTag = data[dbp.stopIndex()]
     dirTag = data[dbp.dirIndex()]
     pw = data[dbp.predWaitIndex()]
