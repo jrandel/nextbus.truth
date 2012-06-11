@@ -10,9 +10,7 @@ Available at: https://github.com/jrandel/nextbus.truth
 The project's code is organized as follows:
 
 nextmunipy.py  ---  Defines classes used to inquire nextbus.com for bus, stop, and prediction info
-
 nmtracker.py   ---  Defines the "dynamic" classes that query nextbus.com for predictions
-
 nmdata.py      ---  Functions used to load and organize prediction accuracy data from database files
 
 
