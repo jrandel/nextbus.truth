@@ -8,22 +8,16 @@ Available at: https://github.com/jrandel/nextbus.truth
 
 
 The project's code is organized as follows:
-
 nextmunipy.py  ---  Defines classes used to inquire nextbus.com for bus, stop, and prediction info
-
 nmtracker.py   ---  Defines the "dynamic" classes that query nextbus.com for predictions
-
 nmdata.py      ---  Functions used to load and organize prediction accuracy data from database files
 
 
-
 Usage tips:
-To accumulate prediction data for a particular route, a Tracker Controller should be instantiated.  This controller contains (and instantiates) a Stop Controller object for each stop on the route, and controls the timing of prediction requests (which are handled by each stop controller).  The tracker controller coallates the prediction data, and writes the results to a database file.
+To accumulate prediction data for a particular route, a Tracker Controller should be instantiated.  This controller contains (and instantiates) a Stop Controller object for each stop on the route, and controls the timing of prediction requests (which are handled by each stop controller).  The tracker controller collects the prediction data, and writes the results to a database file.
 
 Start a data collection run with the following command at a python prompt:
-
 $ tc = nmtracker.TrackerController('XX')    # 'XX' is a route tag, such as 'F', '14', or '14L'.
-
 $ tc.start()                                
 
 
@@ -34,13 +28,14 @@ EXAMPLES:
 
 Two examples of the data collected by this project are provided in graphical form.  
 
-The file "Route12IB_DelayVsPredictionWithLineFit.png" uses a colormap to show how often a prediction delay (defined as actual wait time minus predicted wait time) occurs for the 12-Folsom Inbound bus route.  The colormap shows how often a prediction delay (vertical axis) was measured as a function of the prediction time given by nextmuni.com (horizontal axis).  The white dots correspond to the most frequent prediction delay for each prediction time, and the black line is a simple linear fit that described the median prediction delay well.
+The file "NextMuni_Route12IB_DelayVsPredictionWithLineFit.png" uses a colormap to show how often a prediction delay (defined as actual wait time minus predicted wait time) occurs for the 12-Folsom Inbound bus route.  The colormap shows how often a prediction delay (vertical axis) was measured as a function of the prediction time given by nextmuni.com (horizontal axis).  The white dots correspond to the most frequent prediction delay for each prediction time, and the black line is a simple linear fit that described the median prediction delay well.
 
-The screen shot "Screen shot_NextMuni accuracy on Google Map.png" shows a simple Javascript program that uses the Google Maps API to display the prediction delay for the 12-Folsom inbound at different stops.  Clearly, prediction inaccuracies tend to occur more often in the Mission district than they do in the downtown/Market Street area.  This could be caused by the fact that the Mission is closer to the starting point of the Inbound line, and factors such as driver turnover and breaks may not be accurately accounted for by the NextMuni prediction algorithm.
+The screen shot "NextMuni_Screen shot_NextMuni accuracy on Google Map.png" shows a simple Javascript program that uses the Google Maps API to display the prediction delay for the 12-Folsom inbound at different stops.  Clearly, prediction inaccuracies tend to occur more often in the Mission district than they do in the downtown/Market Street area.  This could be caused by the fact that the Mission is closer to the starting point of the Inbound line, and factors such as driver turnover and breaks may not be accurately accounted for by the NextMuni prediction algorithm.
 
 
 COMMENTS:
 
-This project was insprired by a particularly long wait for San Francisco's F-Market streetcar line.  Relying upon the prediction times posted on nextmuni.com resulted in a missed transfer and a journey that lasted 45 minutes longer than expected.    The inaccuracy of these predictions certainly results in a huge amount of missed busses/transfers and frustration.  This code provides the tools to track and record the accuracy of these predictions across the MUNI system, and accumulate statistics for a large number of predictions.
+=======
 
-The ultimate goal of this project, involves building a model to determine whether a "5 min wait" really means 5 minutes, or if it means more like 10 minutes. Or 3 minutes.  Using a number of variables (bus route, stop location, time of day, day of week, etc.), the model would give an estimate for whether nextmuni.com's prediction can be trusted--or if you might be better off leaving the house a few minutes early.
+This project was inspired by a particularly long wait for San Francisco's F-Market streetcar line.  Relying upon the prediction times posted on nextmuni.com resulted in a missed transfer and a journey that lasted 45 minutes longer than expected.    The inaccuracy of these predictions certainly results in a huge amount of missed busses/transfers and frustration.  This code provides the tools to track and record the accuracy of these predictions across the MUNI system, and accumulate statistics for a large number of predictions.
+The ultimate goal of this project involves building a model to determine whether a "5 min wait" really means 5 minutes, or if it means more like 10 minutes. Or 3 minutes.  Using a number of variables (bus route, stop location, time of day, day of week, etc.), the model would give an estimate for whether nextmuni.com's prediction can be trusted--or if you might be better off leaving the house a few minutes early.
