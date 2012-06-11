@@ -6,8 +6,7 @@
 #    TrackerControlelr:  Manages multiple StopController for a single (or multiple) routes/directions.
 #                        Synchronizes the updating of the StopControllers (and the timing intervals)
 # Output Format:
-# routeTag, stopTag, vehicle, directionTag, startTime, endTime, currentTime, predictedWait, actualWait, waitUncertainty
-# (10 items total per prediction)
+# routeTag, stopTag, vehicle, directionTag, startTime, endTime, currentTime, predictedWait, actualWait, waitUncertainty,
 
 import nextmunipy as nm
 import matplotlib as mat
@@ -32,84 +31,14 @@ MISSING_VALUE = numpy.NaN
 
 #
 #
-#
-# CSVImporter Class
-#
-# Used to read CSV files export by MySQL (format: stopTag, predictedWait, realWait)
-class CSVImporter:
-    def __init__(self, filename=None):
-        self.stop = []
-        self.predictedWaits = {}
-        self.realWaits = {}
-        self.predData = []
-        self.realData = []
-        
-        if filename:
-            self.importFile(filename)
-            
-    def importFile(self, filename):
-        if not os.access(filename, os.F_OK):
-            raise Exception('File "%s" not found.' % filename)
-        
-        stops = []; predictedWait = []; realWait = []
-        cid = csv.reader(open(filename))
-        for line in cid:
-            stops.append(line[0])
-            predictedWait.append(float(line[1]))
-            realWait.append(float(line[2]))
-            
-        self.stop = stops
-        self.predData = predictedWait
-        self.realData = realWait
-        
-        self.assembleDictionary()
-    
-    def assembleDictionary(self):
-        for (s,p,r) in zip(self.stop, self.predData, self.realData):
-            try:
-                pv = self.predictedWaits[s]
-                rv = self.realWaits[s]
-            except KeyError:
-                pv = []
-                rv = []
-            pv.append(p)
-            rv.append(r)
-            self.predictedWaits[s] = pv
-            self.realWaits[s] = rv
-            
-    def getStops(self):
-        return self.stop
-    
-    def uniqueStops(self):
-        return list(numpy.unique(self.stop))
-        # return self.realWaits.keys()
-        
-    def predictedWaitsForStop(self, stopTag):
-        try:
-            return self.predictedWaits[stopTag]
-        except KeyError:
-            return []
-            
-    def realWaitsForStop(self, stopTag):
-        try:
-            return self.realWaits[stopTag]
-        except KeyError:
-            return []
-    
-    def waitsForStop(self, stopTag):
-        try:
-            return (self.predictedWaitsForStop(stopTag), self.realWaitsForStop(stopTag))
-        except KeyError:
-            return []
-#        
-#
-#
 # STOPCONTROLLER CLASS        
 #
 
 class StopController:       
-        
-    # initialize with a list of stop objects
+    '''
+    Returns an object that sends requests to nextbus.com for the purpose of retrieving bus prediction info for a list of bus stops.
+    '''
+    # initialize with a list of nextmunipy.BusStop instances
     def __init__(self, stops):
         self.stops = stops
         self.lastUpdateTime = None
@@ -190,14 +119,15 @@ class StopController:
        
     # INSTANCE METHODS
          
-    # set all prediction times to empty
+    # sets all prediction times to empty
     def clearPredictions(self):
         self.predictions = {}
         for s in self.stops:
             self.predictions[s.tag] = []
             
             
-    # is the input stop (list, tag, or index) updated?
+    # Returns a boolean (or list of booleans) indicating whether the input stop 
+    #   (or list of stops) has been updated on the most recent update.
     def isStopUpdated(self, arg):
         # arg is either an index or string (tag), or a list
         if isinstance(arg, list):
@@ -215,14 +145,13 @@ class StopController:
         i = self.stops.index(s)
         return self.stopUpdateTimes[i] == self.lastUpdateTime
         
-    # output to screen   
+    # send output to screen   
     def show(self):
         print "Stop controller for Route " + self.routeTag
-        self.showStops()
-        # for s in self.stops:
-#             dstr = ''
-#             for d in s.routeDirs: dstr += str(d)
-#             print "  " + s.tag + " (" + dstr + ")"
+        for s in self.stops:
+            dstr = ''
+            for d in s.routeDirs: dstr += str(d)
+            print "  " + s.tag + " (" + dstr + ")"
      
             
             
@@ -250,7 +179,8 @@ class StopController:
         
         self.lastUpdateTime = currentTime
     
-    # get the predictions as a dictionary, with stop tags as keys
+    
+    # Returns the predictions as a dictionary, with stop tags as keys
     def predictionTimes(self, preds=None):
         
         # populate an empty prediction times dictionary
@@ -275,7 +205,7 @@ class StopController:
             
         return predTimes, vehicle
             
-    # get the predictions as a matrix
+    # Returns the predictions as a matrix
     def predictionTimesMatrix(self, preds=None):
     
         import numpy
@@ -310,20 +240,24 @@ class StopController:
             stopVec = x
             
         return (Mat,stopVec)
-        
-    def predictionTimesForVehicle(self, v):
-        return None
+
+
+#     # Returns a list of prediction times for a specified vehicle tag
+#     def predictionTimesForVehicle(self, v):
+#         return None
                 
     
         
-#
-#
+        
 #
 # TRACKERCONTROLLER
 #
-
 class TrackerController:
-
+    '''
+    An object that controls the timing of a StopController's prediction request methods, 
+    and generates a database file (currently, a text file) that is periodically updated 
+    with prediction/arrival information
+    '''
     # initialize using route tag (e.g., '12' or 'N')
     def __init__(self, routeTag, stopIndices=None):
         self.route = nm.BusRoute(routeTag)
@@ -423,14 +357,14 @@ class TrackerController:
     # save the predictions to file
     def archivePredictions(self, predictions):    
         
-        dbp = nm.StopDatabaseParser()
+        dbp = nm.DatabaseParser()
         sep = dbp.separator
         self.fid = open(self.filename, 'a')
         
         for p in predictions:
         
-            # warn the user if the prediction has not been closed (setEndTime was not called):
-            # if not p.actualWait:
+#          # warn the user if the prediction has not been closed (setEndTime was not called):
+#             if not p.actualWait:
 #                 warnings.warn('The following prediction may not be closed:')
 #                 p.show()
 #                 print 'Predicted wait: ' + str(p.getMinutes())
@@ -471,12 +405,9 @@ class TrackerController:
 				self.fid.write(s)
             
    
-    ## a method to show the predictions of an arriving bus
-    #def showArrival(predList):
-    #    return None
          
     # Call to indicate that the predicted vehicle has arrived in a prediction list
-    #    (independent of writing prediction to file; this is done by archivePredictions)
+    #    (independent of writing prediction to file--this is done by archivePredictions)
     def closePredictions(self, predList, updateTime=None):
     
         if isinstance(predList, nm.Prediction):
@@ -498,7 +429,7 @@ class TrackerController:
         return predList
             
             
-    # sort through predictions to see if any arrivals occurred
+    # Cycles through predictions to see if any arrivals occurred, and takes appropriate database action
     def trackUsingPredictions(self, predictions, updateTime):
         
         # predictions are organized by stop (i.e., predictions' keys are stop tags)
@@ -537,8 +468,6 @@ class TrackerController:
                         #   timer went to 0 in a previous iteration), but it is still on the prediction
                         #   list.  In this case, do not re-add it to the list.
                 
-            #if VERBOSE: print ""
-                
             # see if any vehicles have arrived (i.e., are no longer in the vehiclesCurrentlyAtStop list)
             arrivedVehicles = []
             for v in vehiclesBeingTrackedAtStop:
@@ -562,27 +491,7 @@ class TrackerController:
                     stop = self.route.stopWithTag(stopTag)
                     print '*** Vehicle ' + v + ' arrived at stop ' + stopTag + ' (' + stop.name + ') ***'
                     print '    Reason: ' + arrived + '\n'
-            
-#             try:
-# 				if VERBOSE: 
-# 					try:
-# 						print "Stop: " + stopTag + " (" + predsByStop[stopTag][vehiclesCurrentlyAtStop[0]][0].stopName + ")"
-# 					except:
-# 						print "Stop: " + stopTag
-# 					print "vehicles being tracked: "
-# 					print vehiclesBeingTrackedAtStop
-# 					print "currently at stop: "
-# 					print vehiclesCurrentlyAtStop
-# 					s = ''
-# 					for v in vehiclesCurrentlyAtStop: 
-# 						p = self.activePredictionContainer[stopTag][v][-1]
-# 						s += v + ': ' + (str(p.getMinutes()) + ' | ')
-# 					print '  predictions: ' + s
-# 					print "arrived:"
-# 					print arrivedVehicles
-#             except:
-#                 print 'problem outputting arrival status'
-            
+   
             # if there are arrived vehicles
             for v in arrivedVehicles:
                 # move all predictions for this vehicle at this stop to the archive
@@ -597,7 +506,7 @@ class TrackerController:
     #
     # TIMING METHODS
     
-    # run the tracker on the specified route    
+    # runs the tracker on the specified route, generating a data file    
     def start(self):
         
         elapsedTime = 0
@@ -659,17 +568,17 @@ class TrackerController:
         
         
 #
+# UTILITY FUNCTIONS
 #
-#
-# FUNCTIONS
 
-# loads the specified file, makes a copy, and appends the stop latitude/longitude info
+# Loads the specified file, makes a copy, and appends the stop latitude/longitude info
+#   (Early database files were not saved with this information; this corrects the omission)
 def appendLatLonToDatabaseFile(filename, route):
 
     from numpy import nan
     MISSING_VALUE = nan
     
-    dbp = nm.StopDatabaseParser()
+    dbp = nm.DatabaseParser()
     sep = dbp.separator
         
     fr = open(filename,'r')

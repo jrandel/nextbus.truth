@@ -20,9 +20,10 @@ KEEP_PREDICTION_XML = False
 
 # a struct for holding characters used to parse/write data files,
 #    as well as the 
-class StopDatabaseParser:
+class DatabaseParser:
     def __init__(self):
-        self.databaseFilename = STOP_DATABASE_FILENAME
+        self.stopDatabaseFilename = STOP_DATABASE_FILENAME		# the name of the database file used to store stop info
+
         self.separator = '; '
         self.assigner = '='
         self.separator_2 = ','
@@ -67,16 +68,8 @@ class StopDatabaseParser:
     def lonIndex(self): return self.index('longitude')
     
 		
-  
-  
-def listOfAttributesFromList(theList, attrName):
-    newList = []
-    print 'hi'
-    for a in theList:
-        newList.append(getattr(a, attrName))
-    return newList
-    
-# general function for sending commands to NextBus API
+   
+# general function for sending commands to NextBus.com using its public API
 def sendCommand(cmdStr):
 
     baseURL = 'http://webservices.nextbus.com/service/publicXMLFeed?command='
@@ -95,11 +88,10 @@ def sendCommand(cmdStr):
         
     return result
     
+    
   
-# gets predictions for all stops specified in route  
-#    returns (minutes, seconds, currentTime)
-#    minutes & seconds are lists of lists, where the outer list corresponds
-#    to stops, and the inner list corresponds to the upcoming busses at each stop
+# Get predictions for all stops specified in route  
+#    returns a PredictionList object (just a list of predictions with methods to access each)
 def getMultiStopPrediction(routeTagList, stopList):
 
     # stopList must be a list
@@ -159,7 +151,8 @@ def getMultiStopPrediction(routeTagList, stopList):
     currentTime = datetime.now()
     
     thePredictions = []    
-        
+    
+    # parse each returned XML block    
     for xs in xmlByStop:
         
         routeTag = None; routeName = None; stopTag = None; stopName = None
@@ -192,89 +185,26 @@ def getMultiStopPrediction(routeTagList, stopList):
                 min.append(newPrediction.getMinutes())
     
     return predictionList
-    # return (min, sec, currentTime, predictionList)
-    
-       
-# gets predictions for all stops specified in route  
-#    returns (minutes, seconds, currentTime)
-#    minutes & seconds are lists of lists, where the outer list corresponds
-#    to stops, and the inner list corresponds to the upcoming busses at each stop
-def getMultiStopPredictionOld(routeTagList, stopList):
-
-    # stopList must be a list
-    if type(stopList) == str: stopList = [stopList]
-    
-    # check stopList length
-    if len(stopList) > MAX_STOPS_PER_PREDICTION:
-        warnings.warn('Number of stops requested (%i) exceeds maximum allowed (%i).\n' \
-            '  Keeping only the first %i.' % (len(stopList), MAX_STOPS_PER_PREDICTION, MAX_STOPS_PER_PREDICTION))
-        stopList = stopList[0:MAX_STOPS_PER_PREDICTION]
-        
-    # force tag input to be a list of same length as stopList
-    if type(routeTagList) == str:
-        routeTagList = [routeTagList] * len(stopList)
-    elif type(routeTagList) == list and len(routeTagList) == 1:
-        routeTagList = [routeTagList[0]] * len(stopList)
-        
-    # make sure lists are the same length
-    if len(routeTagList) != len(stopList):
-        raise Exception('routeTagList and stopList must be same length')
-        
-	# build command string
-    cmdStr = 'predictionsForMultiStops&a=sf-muni'
-    for tag, stop in zip(routeTagList, stopList):
-        shortTag = tag.split('_')[0]
-        cmdStr += '&stops=%s|%s' % (shortTag, stop)
-
-    xmlData = sendCommand(cmdStr)
-
-    # check for a returned error
-    if xmlData.getElementsByTagName("Error"):
-        raise Exception('Error in getting prediction data.')
-
-    # get the stop and direction info from the first xml block
-    xmlStop = xmlData.getElementsByTagName("predictions")
-    if not xmlStop: xmlStop = None
-    
-    # extract predictions in mins, secs	
-    pred = xmlData.getElementsByTagName("prediction")
-
-    sec = []
-    min = []
-    predictionList = []
-    currentTime = datetime.now()
-    
-    #for (p,st) in (pred, stopList):
-    for p in pred:
-        # make a new Prediction instance, add it to the list 
-        predObj = Prediction(p, xmlStop)
-        predObj.setTimeStamp(currentTime)
-        predictionList.append(predObj)	
-        
-        s = int(p.getAttribute("seconds"))
-        m = int(p.getAttribute("minutes"))
-        sec.append(s)
-        min.append(m)
-
-    return (min, sec, currentTime, predictionList)
-    
-        
-# get all predictions for a given bus object and direction string        
-#def getPredictionsForBusAndDirection(bus, direction):
-    #return getMultiStopPrediction(bus.
-    return None
     
 
 
-# utility functions not specific to a particular line/stop:
+# UTILITY FUNCTIONS not specific to a particular line/stop:
+
+
+# returns just the route portion of a route or direction tag (string)
 def routeFromString(aStr):
     # aStr is of the format '12_OB1', '12', 'F_OBCSTRO', etc
     s = aStr.split('_')
     if not s: return None
     return s[0]
-   
+  
+  
+
+# returns the route and direction portions of a tag (string) as a single string 
 def routeAndDirectionTagFromString(aStr):
+    
     import re
+    
     # aStr is of the format '12_OB1', '12', 'F_OBCSTRO', etc
     s = aStr.split('_')
     if not s: return None
@@ -303,7 +233,10 @@ def routeAndDirectionTagFromString(aStr):
 # Prediction
 #
 class Prediction:
-
+    '''
+    Returns an object with properties that contain info on the when and where of a prediction downloaded from nextmuni.com 
+    '''
+         
     # called by both __init__ and __init__(xml)
     def initialSetup(self):
         self.routeTag = None
@@ -438,7 +371,9 @@ class Prediction:
 # PredictionList
 #
 class PredictionList:
-
+    '''
+    Generates a list of predictions objects, and provides methods to sort & access selected predictions
+    '''
     def __init__(self):
         self.predictions = []
         self.timeOfPredictions = []
@@ -564,13 +499,13 @@ class PredictionList:
            
            
         
-
 #
 # BusRoute
 #
 class BusRoute:
-    # routeTag, routeName, directionList, stops
-    
+    '''
+    Returns an object containing all of the info provided by nextmuni.com about a specific bus route.
+    '''
     #	 initializer
     def setup(self):
         self.stops = []
@@ -1008,24 +943,24 @@ class BusRoute:
         
         nmvis.copyStringToClipboard(url)
         return url
-        
-        
+              
         
               
 #
 # BusStop
 #    
 class BusStop:
-
-    # tag, name, latitude, longitude, stopID
-    
+    '''
+    Returns an object containing all the info provided by nextmuni.com about a specific bus stop.
+    Can be initialized by passing a route tag (string) or XML object.
+    '''
     #
     # INITIALIZATION
     
     def setup(self):
         self.routes = []
         self.routeDirs = []
-        self.dbp = StopDatabaseParser()
+        self.dbp = DatabaseParser()
         self.tag = None
                
     def __init__(self, someStopInfo=None):
@@ -1104,11 +1039,11 @@ class BusStop:
     def setFromDatabaseWithTag(self, tag):
     
         # get database parser object (more of a struct, really)
-        dbp = StopDatabaseParser()
+        dbp = DatabaseParser()
         separator = dbp.separator
         assigner = dbp.assigner
         
-        fid = open(dbp.databaseFilename, 'r')
+        fid = open(dbp.stopDatabaseFilename, 'r')
         
         txt = fid.readline()
         data = txt.split(dbp.separator)
@@ -1259,271 +1194,3 @@ class BusStop:
             p = [stopList.getPosition()]
 
         return p
-    
-    
-    
-    
-### some other functions
-  
-# the official format of the string used in the stop database (a text file)
-def stopDatabaseEntryString(stop, parser=None, lineCount=0):
-    if not parser:
-        parser = StopDatabaseParser()
-    sep = parser.separator
-    assign = parser.assigner
-    routeSep = parser.separator_2
-    
-    newStr = '%i' % lineCount + sep + \
-                 parser.stopTag + assign + '%s' % stop.tag + sep + \
-                 parser.nameTag + assign + '%s' % stop.name + sep + \
-                 parser.latTag + assign + '%f' % stop.latitude + sep + \
-                 parser.lonTag + assign + '%f' % stop.longitude + sep + \
-                 parser.idTag + assign + '%i' % stop.stopID + sep
-                 
-    # route tags
-    rteStr = parser.routesTag + assign
-    for rs in stop.routes:
-        rteStr += '%s' % rs + routeSep
-    if len(stop.routes) > 0: rteStr = rteStr[:-len(routeSep)]	# get rid of trailing routeSep
-    newStr += rteStr
-    newStr += sep
-    
-    # route direction tags
-    dirStr = parser.routeDirTag + assign
-    for ds in stop.routeDirs:
-        dirStr += '%s' % ds + routeSep
-    if len(stop.routeDirs) > 0: dirStr = dirStr[:-len(routeSep)]	# get rid of trailing routeSep
-    newStr += dirStr
-    
-    return newStr
-    
-    
-# Get all the stops from the NextBus website and write them to a txt database
-def makeStopRecord(redundantStopList=None):
-    from datetime import datetime
-    import os
-    from copy import copy
-    
-    dbp = StopDatabaseParser()
-    filename = dbp.databaseFilename
-    sep = dbp.separator
-    assign = dbp.assigner
-    routeSep = dbp.separator_2
-	
-	# if a non-curated list has not been provided, create it (and save to file)	
-    if not redundantStopList:
-				
-		print 'Requesting routes...'
-		data = sendCommand('routeList&a=sf-muni')
-		routes = data.getElementsByTagName('route')
-	
-		tags = []
-		for r in routes:
-			tags.append(str(r.getAttribute("tag")))
-		print '--> done with route request.\n%i routes found.\n' % len(tags)
-		
-		stopTags = []
-		stopList = []
-		routesByStop = []
-		routes = []
-		redundantStopList = []	# stops may be listed multiple times b/c they appear on multiple routes
-		
-		# get info for each route (and extract stop info)
-		print 'Requesting stops...'
-		
-		(filename2,ext) = os.path.splitext(filename)
-		filename2 = filename2 + '_TEMP' + ext
-		fid2 = open(filename2, 'w')
-		fid2.write('# line | stopTag | name | routeTags | routeDirTags | latitude | longitude | stopID')
-		count = 0
-		
-		for t in tags:
-			
-			rte = BusRoute(t)
-			print '\n  Route: ' + t
-			routes.append(rte)
-			
-			for s in rte.stops:
-			    redundantStopList.append(s)
-			    
-			    # write to temporary file: create string
-			    entry = stopDatabaseEntryString(s, lineCount=count, parser=dbp)
-			    
-			    # write to file
-			    fid2.write(entry + '\n')
-			    count += 1
-			    print entry
-			
-			print '  --> done.'
-			print '  (waiting)'        
-			time.sleep(MIN_TIME_BETWEEN_REQUESTS)
-		
-		print '--> done reading stops.'
-		
-	# end stopList generation loop.
-    
-    if not redundantStopList:      
-        return False
-    
-    # organize stops into a non-redundant list
-    stopList = []
-    stopTags = []
-    
-    for stop in redundantStopList:
-        
-        # see if the stop has already appeared
-        try:
-            idx = stopTags.index(stop.tag)
-        except ValueError:	# if a stop has not been encountered before (this is the usual case), add it to the list
-            stopList.append(copy(stop))
-            stopTags.append(stop.tag)
-            idx = len(stopList) - 1		# the index of the current (last) stop
-        
-        # make sure the route associated with the current stop is listed in the non-redundant list's routes:
-        if len(stop.routes) != 1:
-            stop.show()
-            print('Stop %s should only have one route.' % stop.tag)
-        else:
-            if stop.routes[0] not in stopList[idx].routes:
-                stopList[idx].routes.append(stop.routes[0])
-                if stop.routeDirs[0] not in stopList[idx].routeDirs:
-                    stopList[idx].routeDirs.append(stop.routeDirs[0])
-        
-    # stopList is now completed. Organize by tag (if possible)
-    try:
-        numericTag = list(numpy.array(stopTags))
-        stopList = sorted(stopList, key = lambda stop: stop.tag)
-    except:
-        print "Cannot order stops by tag becuase non-numeric tags were encountered."
-            
-    # write all stop info to file    
-    print '\nWriting stops to database: ' + filename
-    
-    fid = open(filename, 'w')
-    lineCount = 0 
-    
-    # header info
-    fid.write(dbp.commentTag + ' NextMuni Stop Database\n')
-    fid.write(dbp.commentTag + ' File: ' + filename + '\n')
-    fid.write(dbp.commentTag + ' Last updated: ' + str(datetime.now())+ '\n')
-    fid.write(dbp.commentTag + ' line | stopTag | name | latitude | longitude | stopID | routes | directions\n')
-    fid.write(dbp.commentTag + '\n')
-    percentDone = 0.0
-    nStops = len(stopList)
-    
-    for s in stopList:
-        
-        entry = stopDatabaseEntryString(s, lineCount=lineCount, parser=dbp)
-        if entry and entry[-1] == '\n': entry = entry[:-1]
-        lineCount += 1
-
-        #print '  Line ' + str(lineCount) + ': ' + entry
-        if len(s.routes) > 1:
-            print s.routes, s.routeDirs
-        # write stop info to file
-        fid.write(entry + '\n')
-        
-        # show update on screen
-        updateOn = 5. / 100.
-        if numpy.ceil(float(lineCount) / float(nStops) * 1./updateOn) > numpy.ceil(percentDone * 1./updateOn):
-            print '\n*** %i percent complete.\n' % (round(float(lineCount) / float(nStops) * 1./updateOn) * updateOn * 100.0)
-        percentDone = float(lineCount) / float(nStops)
-        
-    
-    print '--> done writing to file.'
-    
-    fid.close()
-    return True
-        
-    
-# turn a string in the format of the TEMP stop list file into a stop object 
-# Note that this format is NOT the same as used in the real database file 
-# (it lacks tags, i.e., "stopTag=3312; routes=J,14,F; ...")
-def stopFromEntryString(entry, parser=None):
-    if not parser:
-        parser = StopDatabaseParser()
-    items = entry.split(parser.separator)
-    if len(items) > 7:
-        items = items[1:]	# first entity is a line number
-    stop = BusStop()
-    stop.tag = items[0].strip()
-    stop.name = items[1].strip()
-    stop.routes = [items[2].strip()]
-    stop.routeDirs = [items[3].strip()]
-    stop.latitude = float(items[4])
-    stop.longitude = float(items[5])
-    stop.stopID = int(items[6])
-    return stop
-    
-    
-# get a stoplist from the temporary file (which does not have full route info for stops, and may list redundant stops)
-def stopListFromFile(filename):
-    parser = StopDatabaseParser()
-    fr = open(filename,'r')
-    
-    stopList = []
-    lineCount = 0 
-
-    for entry in fr:
-        if entry:
-            if entry[0] == '#':
-                None	# ignore; comment
-            else:
-                stop = BusStop()	# create a new instance
-                stop.setFromDatabaseLine(entry)
-                stopList.append(stop)
-        else:
-            print 'Could not parse line %i:\n  %s' % (lineCount, entry)
-
-        lineCount += 1
-        
-    return stopList
-            
-    
-def standardizeDatabase(filename):
-    
-    import os
-    
-    fr = open(filename, 'r')
-    (filename2,ext) = os.path.splitext(filename)
-    filename2 = filename2 + '_standard' + ext
-    
-    fw = open(filename2, 'w')
-    
-    parser = StopDatabaseParser()
-    tok = parser.routeDirTag
-    for entry in fr:
-        parts = entry.split(tok)
-        newEntry = entry
-        newRouteDirs = ''
-        newLabel = ''
-        if len(parts) > 1:
-            newEntry = parts[0]
-            routeDirs = (parts[1].strip(parser.assigner + '\n')).split(parser.separator_2)
-            for r in routeDirs:
-                rData = r.split('_')
-                routeTag = rData[0]
-                label = rData[1:]
-                
-                newLabel = ''
-                if 'IB' in label or 'ib' in label or any(['ib' in x.lower() for x in label]):
-                    newLabel = 'IB'
-                if 'OB' in label or 'ob' in label or any(['ob' in x.lower() for x in label]):
-                    newLabel = 'OB'
-                
-                if not newLabel:
-                    print('Could not find IB/OB in direction string: %s' % r)
-                    newLabel = ''
-                
-                newRouteDirs += routeTag + '_' + newLabel + parser.separator_2
-            
-            if len(newRouteDirs) > 0:
-                newRouteDirs = newRouteDirs[:-len(parser.separator_2)]
-            newEntry += (tok + parser.assigner + newRouteDirs)
-    
-        if newLabel:
-            fw.write(newEntry + '\n')
-    
-    fw.close()
-    fr.close()            
-        

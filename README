@@ -1,0 +1,35 @@
+nextbus.truth
+=============
+
+A routine to monitor the accuracy of the public transit prediction times provided by nextbus.com
+
+Author: Jason Randel
+Available at: https://github.com/jrandel/nextbus.truth
+
+
+The project's code is organized as follows:
+
+nextmunipy.py  ---  Defines classes used to inquire nextbus.com for bus, stop, and prediction info
+
+nmtracker.py   ---  Defines the "dynamic" classes that query nextbus.com for predictions
+
+nmdata.py      ---  Functions used to load and organize prediction accuracy data from database files
+
+
+
+Usage tips:
+To accumulate prediction data for a particular route, a Tracker Controller should be instantiated.  This controller contains (and instantiates) a Stop Controller object for each stop on the route, and controls the timing of prediction requests (which are handled by each stop controller).  The tracker controller coallates the prediction data, and writes the results to a database file.
+
+Start a data collection run with the following command at a python prompt:
+
+$ tc = nmtracker.TrackerController('XX')    # 'XX' is a route tag, such as 'F', '14', or '14L'.
+
+$ tc.start()                                
+
+
+Data will be collected for an amount of time given by the tc.timeToRun property.
+
+
+This project was insprired by a particularly long wait for San Francisco's F-Market streetcar line.  Relying upon the prediction times posted on nextmuni.com resulted in a missed transfer and a journey that lasted 45 minutes longer than expected.    The inaccuracy of these predictions certainly results in a huge amount of missed busses/transfers and frustration.  This code provides the tools to track and record the accuracy of these predictions across the MUNI system, and accumulate statistics for a large number of predictions.
+
+The ultimate goal of this project, involves building a model to determine whether a "5 min wait" really means 5 minutes, or if it means more like 10 minutes. Or 3 minutes.  Using a number of variables (bus route, stop location, time of day, day of week, etc.), the model would give an estimate for whether nextmuni.com's prediction can be trusted--or if you might be better off leaving the house a few minutes early.
